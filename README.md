@@ -20,10 +20,10 @@ This project is a designed web UI based on Quarto that helps organize and look u
 <pre><code>cd &lt;your_pdf_directory&gt;
 python3 -m http.server 4000
 </code></pre>
-<p>You can choose the port, but you need to update it in `_quarto.yml` if you do so.</p>
+<p>You can choose the port, but you need to update it in <code>_quarto.yml</code> if you do so.</p>
 </li>
 <li><p>Organize the PDF files for the papers in directories with the same name as the corresponding <code>.bib</code> files, and rename the PDF files as the paper's title, where all <code>white space</code> are replaced with <code>_</code>.</p>
-<p>For example, if you have a paper in <code>data_bibtex/part_A.bib</code>, whose title is "My First Cited Paper", then this PDF file should be placed in <code>&lt;your_pdf_directory&gt;/part_A/My_First_Cited_Paper.pdf<\code>.</p>
+<p>For example, if you have a paper in <code>data_bibtex/part_A.bib</code>, whose title is "My First Cited Paper", then this PDF file should be placed in <code>&lt;your_pdf_directory&gt;/part_A/My_First_Cited_Paper.pdf</code>.</p>
 </li>
 </ol>
 Then the <b>PDF</b> links should direct to the local PDF files!
