@@ -15,16 +15,17 @@ This project is a designed web UI based on Quarto that helps organize and look u
 
 4. If you have local PDF files for the corresponding literatures, you can host a local server to enable quick viewing from the UI:
 
-    a.  Host a local html server in the directory of your PDF files:
-
-            cd <your_pdf_directory>
-            python3 -m http.server 4000
-        You can choose the port, but you need to update it in `_quarto.yml` if you do so.
-
-    b.  Organize the PDF files for the papers in directories with the same name as the corresponding `.bib` files, and rename the PDF files as the paper's title, where all `white space` are replaced with `_`.
-    
-        <!-- -->
-        For example, if you have a paper in `data_bibtex/part_A.bib`, whose title is "My First Cited Paper", then this PDF file should be placed in `<your_pdf_directory>/part_A/My_First_Cited_Paper.pdf`.</p>
+<ol><ol type="a">
+<li><p>Host a local html server in the directory of your PDF files:</p>
+<pre><code>
+cd <your_pdf_directory>
+python3 -m http.server 4000
+</code></pre>
+<p>You can choose the port, but you need to update it in `_quarto.yml` if you do so.</p>
+</li>
+<li><p>Organize the PDF files for the papers in directories with the same name as the corresponding `.bib` files, and rename the PDF files as the paper's title, where all `white space` are replaced with `_`.</p>
+<p>For example, if you have a paper in `data_bibtex/part_A.bib`, whose title is "My First Cited Paper", then this PDF file should be placed in `<your_pdf_directory>/part_A/My_First_Cited_Paper.pdf`.</p>
+</li>
 
     Then the **PDF** links should direct to the local PDF files!
 
