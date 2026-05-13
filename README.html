@@ -62,14 +62,12 @@ quarto render</code></pre></li>
 <li><p>If you have local PDF files for the corresponding literatures, you can host a local server to enable quick viewing from the UI:</p>
 <ol type="a">
 <li><p>Host a local html server in the directory of your PDF files:</p>
-<pre><code>
-cd <your_pdf_directory>
-python3 -m http.server 4000
- </your_pdf_directory></code></pre>
+<pre><code>cd &lt;your_pdf_directory&gt;
+python3 -m http.server 4000</code></pre>
 <p>You can choose the port, but you need to update it in <code>_quarto.yml</code> if you do so.</p></li>
 <li><p>Organize the PDF files for the papers in directories with the same name as the corresponding <code>.bib</code> files, and rename the PDF files as the paper’s title, where all <code>white space</code> are replaced with <code>_</code>.</p>
-<p>
-</p><p>For example, if you have a paper in <code>data_bibtex/part_A.bib</code>, whose title is “My First Cited Paper”, then this PDF file should be placed in <code>&lt;your_pdf_directory&gt;/part_A/My_First_Cited_Paper.pdf</code>.</p>
+<!-- -->
+<p>For example, if you have a paper in <code>data_bibtex/part_A.bib</code>, whose title is “My First Cited Paper”, then this PDF file should be placed in <code>&lt;your_pdf_directory&gt;/part_A/My_First_Cited_Paper.pdf</code>.</p>
 <p></p></li>
 </ol>
 <p>Then the <strong>PDF</strong> links should direct to the local PDF files!</p></li>
