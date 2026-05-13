@@ -907,22 +907,20 @@
     container.innerHTML = `
       <section class="lit-browser">
         <div class="lit-browser__heading">
-          <div>
+          <div class="lit-browser__controls">
             ${title ? `<h2>${escapeHtml(title)}</h2>` : ""}
             <p class="lit-browser__count"></p>
+            <div class="lit-sort" role="group" aria-label="Sort literature">
+              <button type="button" data-sort="year-desc">Newest</button>
+              <button type="button" data-sort="year-asc">Oldest</button>
+              <button type="button" data-sort="title-asc">A-Z</button>
+            </div>
+            <button class="lit-clear" type="button" hidden>Clear filter</button>
           </div>
           <label class="lit-search">
             <span>Search</span>
             <input type="search" placeholder="Title, author, keyword, year..." autocomplete="off">
           </label>
-        </div>
-        <div class="lit-toolbar" aria-label="Literature sorting and filters">
-          <div class="lit-sort" role="group" aria-label="Sort literature">
-            <button type="button" data-sort="year-desc">Newest</button>
-            <button type="button" data-sort="year-asc">Oldest</button>
-            <button type="button" data-sort="title-asc">A-Z</button>
-          </div>
-          <button class="lit-clear" type="button" hidden>Clear filter</button>
         </div>
         <div class="lit-active-filter" hidden></div>
         <nav class="lit-section-nav" aria-label="Literature sections" hidden></nav>

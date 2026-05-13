@@ -1,5 +1,9 @@
 /* css styles */
 
+#title-block-header {
+  text-align: left;
+}
+
 .literature-browser {
   margin: 1.5rem 0 2.5rem;
 }
@@ -18,6 +22,13 @@
 
 .lit-browser__heading h2 {
   margin-bottom: 0.2rem;
+}
+
+.lit-browser__controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.75rem;
 }
 
 .lit-browser__count {
@@ -52,14 +63,6 @@
   border-color: #1f6feb;
   box-shadow: 0 0 0 0.2rem rgba(31, 111, 235, 0.14);
   outline: 0;
-}
-
-.lit-toolbar {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: space-between;
 }
 
 .lit-sort {
@@ -396,12 +399,12 @@
     display: grid;
   }
 
-  .lit-card__header {
+  .lit-browser__controls {
+    align-items: start;
     display: grid;
   }
 
-  .lit-toolbar {
-    align-items: stretch;
+  .lit-card__header {
     display: grid;
   }
 
@@ -417,10 +420,17 @@
 }
 
 @media (min-width: 992px) {
+  #quarto-document-content:has(.literature-browser) {
+    max-width: min(1120px, calc(100vw - 3rem));
+    width: min(1120px, calc(100vw - 3rem));
+  }
+
+  #quarto-document-content:has(.literature-browser) #title-block-header {
+    width: min(1120px, calc(100vw - 3rem));
+  }
+
   .literature-browser {
-    margin-left: 50%;
-    transform: translateX(-50%);
-    width: min(1280px, calc(100vw - 3rem));
+    width: 100%;
   }
 
   .lit-browser {
@@ -428,18 +438,13 @@
     column-gap: 1.25rem;
     grid-template-areas:
       "heading nav"
-      "toolbar nav"
       "filter nav"
       "results nav";
-    grid-template-columns: minmax(0, 1fr) 15rem;
+    grid-template-columns: minmax(0, 1fr) 13rem;
   }
 
   .lit-browser__heading {
     grid-area: heading;
-  }
-
-  .lit-toolbar {
-    grid-area: toolbar;
   }
 
   .lit-active-filter {
@@ -459,7 +464,7 @@
   .lit-section {
     column-gap: 1rem;
     display: grid;
-    grid-template-columns: 13rem minmax(0, 1fr);
+    grid-template-columns: 10rem minmax(0, 1fr);
     padding-top: 1.15rem;
   }
 
