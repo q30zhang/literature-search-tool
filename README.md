@@ -14,6 +14,7 @@ This project is a designed web UI based on Quarto that helps organize and look u
     ```
 
 4. If you have local PDF files for the corresponding literatures, you can host a local server to enable quick viewing from the UI:
+
     a.  Host a local html server in the directory of your PDF files:
 
         ```
