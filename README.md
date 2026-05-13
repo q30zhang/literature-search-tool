@@ -1,6 +1,6 @@
 # Literature Search Tool
 
-This project is a designed web UI based on Quarto that helps organize and look up literatures for academic studies. It uses [BibTeX](https://www.bibtex.org) source files (`*.bib`) to render the UI, making it easy to use and align to academic writing. 
+This project is a designed web UI based on [Quarto](https://quarto.org) that helps organize and look up literatures for academic studies. It uses [BibTeX](https://www.bibtex.org) source files (`*.bib`) to render the UI, making it easy to use and align to academic writing. 
 
 ## Installation and Initialization
 
