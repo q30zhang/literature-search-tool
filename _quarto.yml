@@ -8,7 +8,8 @@ project:
     - literature_data/*.json
 
 # PDF links are generated as:
-# <pdf-parent-dir>/<bib-file-name-without-extension>/<bib-key>.pdf
+# <pdf-parent-dir>/<bib-file-name-without-extension>/<article-title-with-spaces-as-underscores>.pdf
+# BibTeX title "--" sequences are converted to en dashes for local PDF filenames.
 literature:
   pdf-parent-dir: http://localhost:4000
 

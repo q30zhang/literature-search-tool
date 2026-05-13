@@ -22,6 +22,7 @@
 
 .lit-browser__heading h2 {
   margin-bottom: 0.2rem;
+  text-transform: capitalize;
 }
 
 .lit-browser__controls {

@@ -551,12 +551,19 @@ ul.task-list li input[type="checkbox"] {
 
   function filenameFromTitle(title, fallback) {
     const normalized = cleanBibValue(title || fallback || "")
+      .replaceAll("--", "\u2013")
       .replace(/[\\/:*?"<>|]+/g, "")
       .replace(/\s+/g, "_")
       .replace(/_+/g, "_")
       .replace(/^_+|_+$/g, "");
 
     return normalized || cleanBibValue(fallback || "paper");
+  }
+
+  function capitalizeWords(value) {
+    return String(value || "").replace(/\S+/g, (word) => (
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ));
   }
 
   function getSourceStem(sourceName) {
@@ -576,7 +583,7 @@ ul.task-list li input[type="checkbox"] {
   function getSourceInfo(sourceName) {
     const stem = getSourceStem(sourceName);
     const spaced = stem.replace(/[-_]+/g, " ").trim();
-    const title = spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : "Inline";
+    const title = spaced ? capitalizeWords(spaced) : "Inline";
 
     return {
       key: stem,
