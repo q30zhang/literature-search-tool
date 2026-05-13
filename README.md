@@ -26,8 +26,9 @@ python3 -m http.server 4000
 <li><p>Organize the PDF files for the papers in directories with the same name as the corresponding `.bib` files, and rename the PDF files as the paper's title, where all `white space` are replaced with `_`.</p>
 <p>For example, if you have a paper in `data_bibtex/part_A.bib`, whose title is "My First Cited Paper", then this PDF file should be placed in `<your_pdf_directory>/part_A/My_First_Cited_Paper.pdf`.</p>
 </li>
-
-    Then the **PDF** links should direct to the local PDF files!
+</ol>
+Then the **PDF** links should direct to the local PDF files!
+</ol>
 
 ## Organization
 
