@@ -1,0 +1,6 @@
+---
+title: "Literature Collections - Truck Platooning Control"
+author: "Qiaoxuan Zhang"
+---
+
+This is a collection of literatures related to truck platooning control for my Master's thesis.

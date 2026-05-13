@@ -1,0 +1,12 @@
+---
+title: "Literature List"
+---
+
+```{=html}
+<div
+  class="literature-browser"
+  data-pdf-parent-dir="{{< meta literature.pdf-parent-dir >}}"
+></div>
+```
+
+{{< include _include/literature-browser.html >}}

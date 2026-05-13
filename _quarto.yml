@@ -1,0 +1,33 @@
+project:
+  type: website
+  output-dir: docs
+  pre-render:
+    - python3 scripts/build-bib-manifest.py
+  resources:
+    - data_bibtex/*.bib
+    - literature_data/*.json
+
+# PDF links are generated as:
+# <pdf-parent-dir>/<bib-file-name-without-extension>/<bib-key>.pdf
+literature:
+  pdf-parent-dir: http://localhost:4000
+
+website:
+  title: "Literature Collections - Truck Platooning Control"
+  navbar:
+    right:
+      - href: index.qmd
+        text: Home
+      - href: literatures_list.qmd
+        text: List of Literatures
+  search:
+    location: navbar
+    type: overlay
+
+format:
+  html:
+    theme:
+      - cosmo
+      - brand
+    css: styles.css
+    toc: true

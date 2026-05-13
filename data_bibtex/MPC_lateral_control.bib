@@ -1,0 +1,25 @@
+@ARTICLE{feng2024mpc_lateral_control,
+    author={Feng, Yangyang and Yu, Shuyou and Sheng, Encong and Li, Yongfu and Shi, Shuming and Yu, Jianhua and Chen, Hong},
+    journal={IEEE Transactions on Intelligent Transportation Systems}, 
+    title={Distributed MPC of Vehicle Platoons Considering Longitudinal and Lateral Coupling}, 
+    year={2024},
+    volume={25},
+    number={3},
+    pages={2293-2310},
+    keywords={Mathematical model;Vehicle dynamics;3-DOF;MPC;Longitudinal-lateral coupling;Koopman operator;Stability analysis;Linear tire model;Vehicle platooning;V2V communication;Matlab/Simulink;CarSim},
+    doi={10.1109/TITS.2023.3323478},
+    abstract={In this paper, a hierarchical control strategy of vehicle platoons is presented, in which the longitudinal and lateral coupling property of vehicles is taken into account. A three-degree-of-freedom dynamic model of vehicles is approximated to a “global” linear model by the Koopman operator theory. A synchronous distributed predictive control scheme of vehicle platoons is proposed as an upper-level controller, where both the linear vehicle model and a linear parametric-varying lane-keeping model are adopted to predict the dynamic of vehicles, and keep vehicles in the designated lane. Thus, it can avoid the solution of nonlinear optimization problems and reduce the computational burden accordingly. A lower-level controller is designed, where the desired longitudinal control force determined by the upper-level controller is transformed into the desired throttle angle and brake pressure through an inverse longitudinal dynamics model of vehicles. The joint simulation results by PreScan, CarSim and MATLAB/Simulink show that when the leader vehicle accelerates or decelerates, the following vehicles in the platoon can keep the same velocity as the leader vehicle, and maintain the desired safety distance between the front and rear vehicles. In addition, joint simulation in the curved road scenario show that the performance of lane keeping can be guaranteed for vehicle platoons with the proposed control strategy.}
+}
+
+@INPROCEEDINGS{goli2019mpc_lateral_control,
+    author={Goli, M. and Eskandarian, A.},
+    booktitle={2019 American Control Conference (ACC)}, 
+    title={MPC-based Lateral Controller with Look-Ahead Design for Autonomous Multi-vehicle Merging into Platoon}, 
+    year={2019},
+    volume={},
+    number={},
+    pages={5284-5291},
+    keywords={Mathematical model;Vehicle dynamics;3-DOF;MPC;Stability analysis;Tire lateral slip;Pacejka tire model;Vehicle platooning;Merging},
+    doi={10.23919/ACC.2019.8814967},
+    abstract={In this paper a Model Predictive Control (MPC)-based approach is implemented to control the lateral maneuver of nonlinear vehicle dynamics. The controller is then applied to a multi-vehicle merging strategy for several vehicles to autonomously merge into a platoon using a variable-gap lateral reference trajectory. The MPC controller features a look-ahead design so that the controller could take actions in advance and thus improve the tracking objective. A combination of constraints, and slack variables-which quantify constraints violation-are chosen to guarantee a safe, efficient, and comfortable ride. The performance of the linear MPC controller is evaluated against a nonlinear plant to demonstrate a more realistic scenario.}
+}

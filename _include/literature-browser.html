@@ -1,0 +1,1081 @@
+<script>
+(function () {
+  const entryTypeLabels = {
+    article: "Journal article",
+    book: "Book",
+    booklet: "Booklet",
+    conference: "Conference paper",
+    inbook: "Book chapter",
+    incollection: "Collection chapter",
+    inproceedings: "Conference paper",
+    manual: "Manual",
+    mastersthesis: "Master's thesis",
+    misc: "Miscellaneous",
+    phdthesis: "PhD thesis",
+    proceedings: "Proceedings",
+    techreport: "Technical report",
+    unpublished: "Unpublished"
+  };
+
+  function splitDataList(value) {
+    if (!value) {
+      return [];
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return [];
+    }
+
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return Array.isArray(parsed) ? parsed.map(String).map((item) => item.trim()).filter(Boolean) : [];
+      } catch (_error) {
+        return [];
+      }
+    }
+
+    return trimmed.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function normalizeSpace(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function stripWrappingDelimiters(value) {
+    let text = String(value || "").trim();
+    let changed = true;
+
+    while (changed && text.length >= 2) {
+      changed = false;
+      const first = text[0];
+      const last = text[text.length - 1];
+      if ((first === "{" && last === "}") || (first === "\"" && last === "\"")) {
+        text = text.slice(1, -1).trim();
+        changed = true;
+      }
+    }
+
+    return text;
+  }
+
+  function cleanBibValue(value) {
+    return normalizeSpace(
+      stripWrappingDelimiters(value)
+        .replace(/[{}]/g, "")
+        .replace(/\\&/g, "&")
+        .replace(/\\_/g, "_")
+        .replace(/\\%/g, "%")
+        .replace(/\\#/g, "#")
+        .replace(/\\textendash\s*/g, "-")
+        .replace(/\\textemdash\s*/g, "-")
+        .replace(/``|''/g, "\"")
+        .replace(/~/g, " ")
+    );
+  }
+
+  function findMatchingEntryEnd(text, startIndex, openChar) {
+    const closeChar = openChar === "{" ? "}" : ")";
+    let depth = 1;
+    let inQuote = false;
+    let escaped = false;
+
+    for (let index = startIndex + 1; index < text.length; index += 1) {
+      const char = text[index];
+
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+
+      if (inQuote) {
+        if (char === "\"") {
+          inQuote = false;
+        }
+        continue;
+      }
+
+      if (char === "\"") {
+        inQuote = true;
+        continue;
+      }
+
+      if (char === openChar) {
+        depth += 1;
+      } else if (char === closeChar) {
+        depth -= 1;
+        if (depth === 0) {
+          return index;
+        }
+      }
+    }
+
+    return -1;
+  }
+
+  function findTopLevelComma(value) {
+    let depth = 0;
+    let inQuote = false;
+    let escaped = false;
+
+    for (let index = 0; index < value.length; index += 1) {
+      const char = value[index];
+
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+
+      if (inQuote) {
+        if (char === "\"") {
+          inQuote = false;
+        }
+        continue;
+      }
+
+      if (char === "\"") {
+        inQuote = true;
+      } else if (char === "{") {
+        depth += 1;
+      } else if (char === "}") {
+        depth = Math.max(0, depth - 1);
+      } else if (char === "," && depth === 0) {
+        return index;
+      }
+    }
+
+    return -1;
+  }
+
+  function readFieldValue(body, startIndex) {
+    let index = startIndex;
+    while (index < body.length && /\s/.test(body[index])) {
+      index += 1;
+    }
+
+    if (body[index] === "{") {
+      const end = findMatchingEntryEnd(body, index, "{");
+      return {
+        raw: end === -1 ? body.slice(index) : body.slice(index, end + 1),
+        nextIndex: end === -1 ? body.length : end + 1
+      };
+    }
+
+    if (body[index] === "\"") {
+      let escaped = false;
+      for (let cursor = index + 1; cursor < body.length; cursor += 1) {
+        const char = body[cursor];
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (char === "\\") {
+          escaped = true;
+          continue;
+        }
+        if (char === "\"") {
+          return {
+            raw: body.slice(index, cursor + 1),
+            nextIndex: cursor + 1
+          };
+        }
+      }
+      return { raw: body.slice(index), nextIndex: body.length };
+    }
+
+    let cursor = index;
+    while (cursor < body.length && body[cursor] !== ",") {
+      cursor += 1;
+    }
+
+    return {
+      raw: body.slice(index, cursor).trim(),
+      nextIndex: cursor
+    };
+  }
+
+  function parseFields(body) {
+    const fields = {};
+    let index = 0;
+
+    while (index < body.length) {
+      while (index < body.length && (/[\s,]/.test(body[index]))) {
+        index += 1;
+      }
+
+      const nameStart = index;
+      while (index < body.length && /[A-Za-z0-9_:-]/.test(body[index])) {
+        index += 1;
+      }
+
+      const name = body.slice(nameStart, index).trim().toLowerCase();
+      if (!name) {
+        index += 1;
+        continue;
+      }
+
+      while (index < body.length && /\s/.test(body[index])) {
+        index += 1;
+      }
+
+      if (body[index] !== "=") {
+        index += 1;
+        continue;
+      }
+
+      const value = readFieldValue(body, index + 1);
+      fields[name] = cleanBibValue(value.raw);
+      index = value.nextIndex;
+
+      while (index < body.length && body[index] !== ",") {
+        index += 1;
+      }
+    }
+
+    return fields;
+  }
+
+  function parseBibtex(text, sourceName) {
+    const entries = [];
+    let index = 0;
+
+    while (index < text.length) {
+      const atIndex = text.indexOf("@", index);
+      if (atIndex === -1) {
+        break;
+      }
+
+      let cursor = atIndex + 1;
+      while (cursor < text.length && /\s/.test(text[cursor])) {
+        cursor += 1;
+      }
+
+      const typeStart = cursor;
+      while (cursor < text.length && /[A-Za-z]/.test(text[cursor])) {
+        cursor += 1;
+      }
+
+      const type = text.slice(typeStart, cursor).toLowerCase();
+      while (cursor < text.length && /\s/.test(text[cursor])) {
+        cursor += 1;
+      }
+
+      const openChar = text[cursor];
+      if (openChar !== "{" && openChar !== "(") {
+        index = cursor + 1;
+        continue;
+      }
+
+      const endIndex = findMatchingEntryEnd(text, cursor, openChar);
+      if (endIndex === -1) {
+        break;
+      }
+
+      if (!["comment", "preamble", "string"].includes(type)) {
+        const content = text.slice(cursor + 1, endIndex);
+        const commaIndex = findTopLevelComma(content);
+        if (commaIndex !== -1) {
+          const key = cleanBibValue(content.slice(0, commaIndex));
+          const fields = parseFields(content.slice(commaIndex + 1));
+          entries.push({
+            key,
+            source: sourceName,
+            type,
+            fields,
+            raw: text.slice(atIndex, endIndex + 1)
+          });
+        }
+      }
+
+      index = endIndex + 1;
+    }
+
+    return entries;
+  }
+
+  function splitAuthors(authorField) {
+    if (!authorField) {
+      return [];
+    }
+
+    return authorField
+      .split(/\s+and\s+/i)
+      .map((author) => cleanBibValue(author))
+      .filter(Boolean);
+  }
+
+  function formatAuthor(author) {
+    const parts = author.split(",").map((part) => part.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      return normalizeSpace(`${parts.slice(1).join(" ")} ${parts[0]}`);
+    }
+    return author;
+  }
+
+  function formatAuthors(authorField) {
+    const authors = splitAuthors(authorField).map(formatAuthor);
+    if (!authors.length) {
+      return "Unknown authors";
+    }
+
+    if (authors.length > 6) {
+      return `${authors.slice(0, 5).join(", ")} et al.`;
+    }
+
+    return authors.join(", ");
+  }
+
+  function splitKeywords(keywordsField) {
+    if (!keywordsField) {
+      return [];
+    }
+
+    const delimiter = keywordsField.includes(";") ? ";" : ",";
+    const seen = new Set();
+    return keywordsField
+      .split(delimiter)
+      .map((keyword) => cleanBibValue(keyword))
+      .filter(Boolean)
+      .filter((keyword) => {
+        const normalized = keyword.toLowerCase();
+        if (seen.has(normalized)) {
+          return false;
+        }
+        seen.add(normalized);
+        return true;
+      });
+  }
+
+  function getVenue(fields) {
+    return fields.journal || fields.booktitle || fields.publisher || fields.institution || fields.school || "";
+  }
+
+  function normalizeDoiUrl(doi) {
+    const cleaned = cleanBibValue(doi).replace(/^doi:\s*/i, "");
+    if (!cleaned) {
+      return "";
+    }
+
+    if (/^https?:\/\//i.test(cleaned)) {
+      return cleaned;
+    }
+
+    if (/^doi\.org\//i.test(cleaned)) {
+      return `https://${cleaned}`;
+    }
+
+    return `https://doi.org/${cleaned}`;
+  }
+
+  function normalizeLocalPdfPath(value) {
+    const cleaned = cleanBibValue(value);
+    if (!cleaned) {
+      return "";
+    }
+
+    if (/^https?:\/\//i.test(cleaned) || /^file:\/\//i.test(cleaned)) {
+      return cleaned;
+    }
+
+    if (/^[A-Za-z]:[\\/].*\.pdf($|[?#])/i.test(cleaned)) {
+      return `file:///${cleaned.replace(/\\/g, "/")}`;
+    }
+
+    if (/\.pdf($|[?#])/i.test(cleaned) && !cleaned.includes(":")) {
+      return cleaned.startsWith("/") ? `file://${cleaned}` : cleaned;
+    }
+
+    const pdfMatch = cleaned.match(/(?:^|[:;])([^:;]+\.pdf)(?=[:;]|$)/i);
+    return pdfMatch ? normalizeLocalPdfPath(pdfMatch[1].trim()) : "";
+  }
+
+  function encodePathValue(value) {
+    return encodeURIComponent(String(value || "").trim());
+  }
+
+  function filenameFromTitle(title, fallback) {
+    const normalized = cleanBibValue(title || fallback || "")
+      .replace(/[\\/:*?"<>|]+/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+
+    return normalized || cleanBibValue(fallback || "paper");
+  }
+
+  function getSourceStem(sourceName) {
+    const rawSource = String(sourceName || "inline");
+    let pathName = rawSource;
+
+    try {
+      pathName = new URL(rawSource, document.baseURI).pathname;
+    } catch (_error) {
+      pathName = rawSource;
+    }
+
+    const fileName = decodeURIComponent(pathName.split("/").filter(Boolean).pop() || rawSource);
+    return fileName.replace(/\.bib$/i, "") || "inline";
+  }
+
+  function getSourceInfo(sourceName) {
+    const stem = getSourceStem(sourceName);
+    const spaced = stem.replace(/[-_]+/g, " ").trim();
+    const title = spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : "Inline";
+
+    return {
+      key: stem,
+      title
+    };
+  }
+
+  function normalizePathRoot(root) {
+    const trimmed = String(root || "").trim().replace(/\/+$/, "");
+    if (!trimmed) {
+      return "";
+    }
+
+    if (/^file:\/\//i.test(trimmed) || /^https?:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+
+    if (/^[A-Za-z]:[\\/]/.test(trimmed)) {
+      return `file:///${trimmed.replace(/\\/g, "/")}`;
+    }
+
+    if (trimmed.startsWith("/")) {
+      return `file://${trimmed}`;
+    }
+
+    return trimmed;
+  }
+
+  function buildPdfPath(parentDir, sourceInfo, entry) {
+    const root = normalizePathRoot(parentDir);
+    if (!root) {
+      return "";
+    }
+
+    const filename = filenameFromTitle(entry.fields.title, entry.key);
+    return `${root}/${encodePathValue(sourceInfo.key)}/${encodePathValue(filename)}.pdf`;
+  }
+
+  function applyPathTemplate(template, entry) {
+    const fields = entry.fields;
+    const titleSlug = (fields.title || entry.key || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    return template
+      .replaceAll("{key}", encodePathValue(entry.key))
+      .replaceAll("{doi}", encodePathValue((fields.doi || "").replace(/^doi:\s*/i, "")))
+      .replaceAll("{title}", encodePathValue(titleSlug));
+  }
+
+  function getPdfUrl(entry, container, sourceInfo) {
+    const fields = entry.fields;
+    const explicitPdf = normalizeLocalPdfPath(fields.pdf || fields.localpdf || fields.local_pdf || fields.file);
+    if (explicitPdf) {
+      return explicitPdf;
+    }
+
+    const pathTemplate = container.dataset.pdfPathTemplate || "";
+    if (pathTemplate) {
+      return applyPathTemplate(pathTemplate, entry);
+    }
+
+    const pdfParentDir = container.dataset.pdfParentDir || "";
+    if (pdfParentDir) {
+      return buildPdfPath(pdfParentDir, sourceInfo, entry);
+    }
+
+    const pdfDir = (container.dataset.pdfDir || "").replace(/\/+$/, "");
+    if (pdfDir) {
+      return `${pdfDir}/${encodePathValue(filenameFromTitle(fields.title, entry.key))}.pdf`;
+    }
+
+    return "";
+  }
+
+  function yearNumber(entry) {
+    const value = Number.parseInt(entry.fields.year, 10);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  function comparableTitle(entry) {
+    return (entry.fields.title || entry.key || "").toLowerCase();
+  }
+
+  function decorateEntry(entry, container, index) {
+    const fields = entry.fields;
+    const sourceInfo = getSourceInfo(entry.source);
+    const keywords = splitKeywords(fields.keywords);
+    const venue = getVenue(fields);
+    const searchable = [
+      entry.key,
+      entry.type,
+      fields.title,
+      fields.author,
+      fields.year,
+      venue,
+      fields.abstract,
+      fields.doi,
+      fields.url,
+      keywords.join(" ")
+    ].join(" ").toLowerCase();
+
+    return {
+      ...entry,
+      id: `${sourceInfo.key}::${entry.key}::${index}`,
+      authorsText: formatAuthors(fields.author),
+      doiUrl: normalizeDoiUrl(fields.doi),
+      keywords,
+      pdfUrl: getPdfUrl(entry, container, sourceInfo),
+      sourceKey: sourceInfo.key,
+      sourceTitle: sourceInfo.title,
+      venue,
+      searchable
+    };
+  }
+
+  function sortEntries(entries, sortMode) {
+    const sorted = [...entries];
+
+    sorted.sort((left, right) => {
+      if (sortMode === "year-asc") {
+        return yearNumber(left) - yearNumber(right) || comparableTitle(left).localeCompare(comparableTitle(right));
+      }
+
+      if (sortMode === "title-asc") {
+        return comparableTitle(left).localeCompare(comparableTitle(right)) || yearNumber(right) - yearNumber(left);
+      }
+
+      return yearNumber(right) - yearNumber(left) || comparableTitle(left).localeCompare(comparableTitle(right));
+    });
+
+    return sorted;
+  }
+
+  function buildMeta(entry) {
+    const fields = entry.fields;
+    const meta = [];
+
+    if (fields.year) {
+      meta.push(`<span>${escapeHtml(fields.year)}</span>`);
+    }
+
+    if (entry.venue) {
+      meta.push(`<span>${escapeHtml(entry.venue)}</span>`);
+    }
+
+    if (fields.volume) {
+      meta.push(`<span>Vol. ${escapeHtml(fields.volume)}${fields.number ? `(${escapeHtml(fields.number)})` : ""}</span>`);
+    }
+
+    if (fields.pages) {
+      meta.push(`<span>pp. ${escapeHtml(fields.pages)}</span>`);
+    }
+
+    return meta.join("");
+  }
+
+  function renderLinks(entry) {
+    const links = [];
+
+    if (entry.pdfUrl) {
+      links.push(`<a href="${escapeHtml(entry.pdfUrl)}" target="_blank" rel="noopener">PDF</a>`);
+    }
+
+    if (entry.doiUrl) {
+      links.push(`<a href="${escapeHtml(entry.doiUrl)}" target="_blank" rel="noopener">DOI</a>`);
+    }
+
+    if (entry.fields.url) {
+      links.push(`<a href="${escapeHtml(entry.fields.url)}" target="_blank" rel="noopener">URL</a>`);
+    }
+
+    links.push(`<span class="lit-card__key">${escapeHtml(entry.key)}</span>`);
+
+    return links.join("");
+  }
+
+  function renderTitle(entry) {
+    const title = escapeHtml(entry.fields.title || entry.key);
+    const titleUrl = entry.doiUrl || entry.fields.url || "";
+    if (!titleUrl) {
+      return title;
+    }
+
+    return `<a href="${escapeHtml(titleUrl)}" target="_blank" rel="noopener" title="Open source">${title}</a>`;
+  }
+
+  function renderKeywordButtons(entry, activeKeywords) {
+    if (!entry.keywords.length) {
+      return "";
+    }
+
+    return `
+      <div class="lit-keywords" aria-label="Keywords for ${escapeHtml(entry.fields.title || entry.key)}">
+        ${entry.keywords.map((keyword) => `
+          <button
+            class="lit-keyword${activeKeywords.has(keyword.toLowerCase()) ? " is-active" : ""}"
+            type="button"
+            data-keyword="${escapeHtml(keyword.toLowerCase())}"
+          >${escapeHtml(keyword)}</button>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function renderAbstract(entry) {
+    if (!entry.fields.abstract) {
+      return "";
+    }
+
+    return `
+      <details class="lit-abstract">
+        <summary>Abstract</summary>
+        <p>${escapeHtml(entry.fields.abstract)}</p>
+      </details>
+    `;
+  }
+
+  function renderCopyButton(entry) {
+    if (!entry.raw) {
+      return "";
+    }
+
+    return `<button class="lit-copy" type="button" data-entry-id="${escapeHtml(entry.id)}">Copy BibTeX</button>`;
+  }
+
+  function renderCard(entry, activeKeywords) {
+    const typeLabel = entryTypeLabels[entry.type] || entry.type;
+
+    return `
+      <article class="lit-card">
+        <div class="lit-card__header">
+          <div class="lit-card__topline">
+            <span class="lit-card__type">${escapeHtml(typeLabel)}</span>
+            ${buildMeta(entry)}
+          </div>
+          ${renderCopyButton(entry)}
+        </div>
+        <h3 class="lit-card__title">${renderTitle(entry)}</h3>
+        <p class="lit-card__authors">${escapeHtml(entry.authorsText)}</p>
+        <div class="lit-card__links">${renderLinks(entry)}</div>
+        ${renderKeywordButtons(entry, activeKeywords)}
+        ${renderAbstract(entry)}
+      </article>
+    `;
+  }
+
+  function setLoading(container, title) {
+    container.innerHTML = `
+      <section class="lit-browser" aria-live="polite">
+        ${title ? `<div class="lit-browser__heading"><h2>${escapeHtml(title)}</h2></div>` : ""}
+        <div class="lit-status">Loading literature data...</div>
+      </section>
+    `;
+  }
+
+  function setError(container, message) {
+    container.innerHTML = `
+      <section class="lit-browser" aria-live="polite">
+        <div class="lit-status lit-status--error">${escapeHtml(message)}</div>
+      </section>
+    `;
+  }
+
+  function collectInlineSources(container) {
+    return Array.from(container.querySelectorAll("script.literature-bib-data, template.literature-bib-data"))
+      .map((node, nodeIndex) => ({
+        name: `inline-${nodeIndex + 1}`,
+        text: node.textContent || node.innerHTML || ""
+      }));
+  }
+
+  async function loadBibManifest(container) {
+    const manifestPath = container.dataset.bibManifest || "literature_data/bib-files.json";
+    const response = await fetch(manifestPath, { cache: "no-cache" });
+    if (!response.ok) {
+      throw new Error(`Unable to load ${manifestPath}`);
+    }
+
+    const payload = await response.json();
+    if (Array.isArray(payload)) {
+      return payload.map(String).filter((path) => path.endsWith(".bib"));
+    }
+
+    return Array.isArray(payload.bibFiles)
+      ? payload.bibFiles.map(String).filter((path) => path.endsWith(".bib"))
+      : [];
+  }
+
+  async function loadBibDirectoryListing(container) {
+    const bibDir = (container.dataset.bibDir || "data_bibtex").replace(/\/+$/, "");
+    const response = await fetch(`${bibDir}/`);
+    if (!response.ok) {
+      return [];
+    }
+
+    const html = await response.text();
+    const parsed = new DOMParser().parseFromString(html, "text/html");
+    const files = Array.from(parsed.querySelectorAll("a"))
+      .map((link) => link.getAttribute("href") || "")
+      .filter((href) => href.toLowerCase().endsWith(".bib"))
+      .map((href) => new URL(href, new URL(`${bibDir}/`, document.baseURI)).href);
+
+    return Array.from(new Set(files)).sort();
+  }
+
+  async function getBibFiles(container) {
+    const explicitBibFiles = splitDataList(container.dataset.bibFiles || "");
+    if (explicitBibFiles.length) {
+      return explicitBibFiles;
+    }
+
+    try {
+      const manifestBibFiles = await loadBibManifest(container);
+      if (manifestBibFiles.length) {
+        return manifestBibFiles;
+      }
+    } catch (_error) {
+      const directoryBibFiles = await loadBibDirectoryListing(container);
+      if (directoryBibFiles.length) {
+        return directoryBibFiles;
+      }
+
+      throw _error;
+    }
+
+    return [];
+  }
+
+  async function loadEntries(container, inlineSources) {
+    const bibFiles = await getBibFiles(container);
+    const selectorList = splitDataList(container.dataset.bibSelector || "");
+    const sourceTexts = [...inlineSources];
+
+    const fileSources = await Promise.all(bibFiles.map(async (filePath) => {
+      const response = await fetch(filePath);
+      if (!response.ok) {
+        throw new Error(`Unable to load ${filePath}`);
+      }
+      return {
+        name: filePath,
+        text: await response.text()
+      };
+    }));
+    sourceTexts.push(...fileSources);
+
+    selectorList.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((node, nodeIndex) => {
+        sourceTexts.push({
+          name: `${selector}${nodeIndex ? `:${nodeIndex + 1}` : ""}`,
+          text: node.textContent || ""
+        });
+      });
+    });
+
+    return sourceTexts
+      .flatMap((source) => parseBibtex(source.text, source.name))
+      .map((entry, index) => decorateEntry(entry, container, index));
+  }
+
+  async function copyTextToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.setAttribute("readonly", "");
+    textArea.style.position = "fixed";
+    textArea.style.top = "-9999px";
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand("copy");
+    textArea.remove();
+  }
+
+  function groupEntriesBySource(entries, sectionOrder, sortMode) {
+    const entriesBySection = new Map();
+
+    entries.forEach((entry) => {
+      if (!entriesBySection.has(entry.sourceKey)) {
+        entriesBySection.set(entry.sourceKey, []);
+      }
+      entriesBySection.get(entry.sourceKey).push(entry);
+    });
+
+    return sectionOrder
+      .map((section) => ({
+        ...section,
+        entries: sortEntries(entriesBySection.get(section.key) || [], sortMode)
+      }))
+      .filter((section) => section.entries.length);
+  }
+
+  function getSectionId(section) {
+    return `lit-section-${String(section.key).replace(/[^A-Za-z0-9_-]+/g, "-")}`;
+  }
+
+  function renderSectionNav(sections) {
+    if (!sections.length) {
+      return "";
+    }
+
+    return `
+      <span>Sections</span>
+      <div>
+        ${sections.map((section) => {
+          const countLabel = section.entries.length === 1 ? "entry" : "entries";
+          return `
+            <a href="#${escapeHtml(getSectionId(section))}"><b>
+              ${escapeHtml(section.title)}</b>
+              <small>${section.entries.length} ${countLabel}</small>
+            </a>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function renderSection(section, activeKeywords) {
+    const countLabel = section.entries.length === 1 ? "entry" : "entries";
+
+    return `
+      <details class="lit-section" id="${escapeHtml(getSectionId(section))}" open>
+        <summary class="lit-section__heading">
+          <h2>${escapeHtml(section.title)}</h2>
+          <span>${section.entries.length} ${countLabel}</span>
+        </summary>
+        <div class="lit-section__results">
+          ${section.entries.map((entry) => renderCard(entry, activeKeywords)).join("")}
+        </div>
+      </details>
+    `;
+  }
+
+  function renderBrowser(container, entries, title) {
+    let query = "";
+    let activeKeywords = new Set();
+    let sortMode = container.dataset.sort || "year-desc";
+    const keywordLabels = new Map();
+    const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+    const sectionOrder = [];
+    const seenSections = new Set();
+
+    entries.forEach((entry) => {
+      if (!seenSections.has(entry.sourceKey)) {
+        seenSections.add(entry.sourceKey);
+        sectionOrder.push({
+          key: entry.sourceKey,
+          title: entry.sourceTitle
+        });
+      }
+
+      entry.keywords.forEach((keyword) => {
+        const normalized = keyword.toLowerCase();
+        if (!keywordLabels.has(normalized)) {
+          keywordLabels.set(normalized, keyword);
+        }
+      });
+    });
+
+    container.innerHTML = `
+      <section class="lit-browser">
+        <div class="lit-browser__heading">
+          <div>
+            ${title ? `<h2>${escapeHtml(title)}</h2>` : ""}
+            <p class="lit-browser__count"></p>
+          </div>
+          <label class="lit-search">
+            <span>Search</span>
+            <input type="search" placeholder="Title, author, keyword, year..." autocomplete="off">
+          </label>
+        </div>
+        <div class="lit-toolbar" aria-label="Literature sorting and filters">
+          <div class="lit-sort" role="group" aria-label="Sort literature">
+            <button type="button" data-sort="year-desc">Newest</button>
+            <button type="button" data-sort="year-asc">Oldest</button>
+            <button type="button" data-sort="title-asc">A-Z</button>
+          </div>
+          <button class="lit-clear" type="button" hidden>Clear filter</button>
+        </div>
+        <div class="lit-active-filter" hidden></div>
+        <nav class="lit-section-nav" aria-label="Literature sections" hidden></nav>
+        <div class="lit-results"></div>
+      </section>
+    `;
+
+    const countNode = container.querySelector(".lit-browser__count");
+    const searchInput = container.querySelector(".lit-search input");
+    const resultsNode = container.querySelector(".lit-results");
+    const clearButton = container.querySelector(".lit-clear");
+    const activeFilterNode = container.querySelector(".lit-active-filter");
+    const sectionNavNode = container.querySelector(".lit-section-nav");
+    const sortButtons = Array.from(container.querySelectorAll("[data-sort]"));
+
+    function matchesEntry(entry) {
+      const matchesQuery = !query || entry.searchable.includes(query);
+      const matchesKeyword = !activeKeywords.size || Array.from(activeKeywords).every((activeKeyword) =>
+        entry.keywords.some((keyword) => keyword.toLowerCase() === activeKeyword)
+      );
+      return matchesQuery && matchesKeyword;
+    }
+
+    function update() {
+      const filtered = entries.filter(matchesEntry);
+      const sections = groupEntriesBySource(filtered, sectionOrder, sortMode);
+      const total = entries.length;
+      const hasFilter = Boolean(query || activeKeywords.size);
+      const totalLabel = total === 1 ? "entry" : "entries";
+
+      countNode.textContent = hasFilter
+        ? `${filtered.length} of ${total} ${totalLabel}`
+        : `${total} ${totalLabel}`;
+
+      clearButton.hidden = !hasFilter;
+      activeFilterNode.hidden = !activeKeywords.size;
+      if (activeKeywords.size) {
+        const filterButtons = Array.from(activeKeywords).map((activeKeyword) => {
+          const activeKeywordLabel = keywordLabels.get(activeKeyword) || activeKeyword;
+          return `
+            <button type="button" data-active-keyword="${escapeHtml(activeKeyword)}">
+              ${escapeHtml(activeKeywordLabel)} <span aria-hidden="true">x</span>
+            </button>
+          `;
+        }).join("");
+
+        activeFilterNode.innerHTML = `
+          <span>Keyword filters:</span>
+          ${filterButtons}
+        `;
+        activeFilterNode.querySelectorAll("[data-active-keyword]").forEach((button) => {
+          button.addEventListener("click", () => {
+            activeKeywords.delete(button.dataset.activeKeyword);
+            update();
+          });
+        });
+      }
+
+      sortButtons.forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.sort === sortMode);
+      });
+
+      if (!filtered.length) {
+        sectionNavNode.hidden = true;
+        sectionNavNode.innerHTML = "";
+        resultsNode.innerHTML = `<div class="lit-status">No literature matched the current search.</div>`;
+        return;
+      }
+
+      sectionNavNode.hidden = sections.length <= 1;
+      sectionNavNode.innerHTML = renderSectionNav(sections);
+      resultsNode.innerHTML = sections.map((section) => renderSection(section, activeKeywords)).join("");
+      resultsNode.querySelectorAll("[data-keyword]").forEach((button) => {
+        button.addEventListener("click", () => {
+          if (activeKeywords.has(button.dataset.keyword)) {
+            activeKeywords.delete(button.dataset.keyword);
+          } else {
+            activeKeywords.add(button.dataset.keyword);
+          }
+          update();
+        });
+      });
+
+      resultsNode.querySelectorAll(".lit-copy").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const entry = entriesById.get(button.dataset.entryId);
+          if (!entry) {
+            return;
+          }
+
+          const originalText = button.textContent;
+          try {
+            await copyTextToClipboard(entry.raw);
+            button.textContent = "Copied";
+            button.classList.add("is-copied");
+          } catch (_error) {
+            button.textContent = "Copy failed";
+          }
+
+          window.setTimeout(() => {
+            button.textContent = originalText;
+            button.classList.remove("is-copied");
+          }, 1600);
+        });
+      });
+    }
+
+    searchInput.addEventListener("input", () => {
+      query = searchInput.value.trim().toLowerCase();
+      update();
+    });
+
+    sortButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        sortMode = button.dataset.sort;
+        update();
+      });
+    });
+
+    clearButton.addEventListener("click", () => {
+      query = "";
+      activeKeywords = new Set();
+      searchInput.value = "";
+      update();
+      searchInput.focus();
+    });
+
+    update();
+  }
+
+  function init() {
+    document.querySelectorAll(".literature-browser").forEach(async (container) => {
+      const title = container.dataset.title || "";
+      const inlineSources = collectInlineSources(container);
+      setLoading(container, title);
+
+      try {
+        const entries = await loadEntries(container, inlineSources);
+        if (!entries.length) {
+          setError(container, "No BibTeX entries were found.");
+          return;
+        }
+        renderBrowser(container, entries, title);
+      } catch (error) {
+        setError(container, error.message || "Unable to load literature data.");
+      }
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+}());
+</script>
