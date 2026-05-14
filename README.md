@@ -6,14 +6,23 @@ This project is a designed web UI based on [Quarto](https://quarto.org) that hel
 
 1. Install [Quarto](https://quarto.org) and choose your dev tool.
 2. Fork/clone the repository and set it up as a github page (deploy from `/docs`).
-3. Replace the `*.bib` source files in `/data_bibtex` and rebuild from fresh:
+3. Replace the `*.bib` source files in `/data_bibtex` and rebuild:
 
     ```
-    quarto clean
+    cd <path-to-project>
     quarto render
     ```
 
-4. If you have local PDF files for the corresponding literatures, you can host a local server to enable quick viewing from the UI:
+4. Host locally by executing `quarto preview` (for under development), or host it statically at `http://127.0.0.1:8000`:
+
+    ```
+    cd <path-to-project>/docs
+    python3 -m http.server 8000
+    ```
+
+    Alternatively, push to GitHub and host it through [GitHub Pages](https://docs.github.com/en/pages). In the settings of the repo, select "Page" and select **Deploy from a branch**, and select the `main` branch and `/docs` directory.
+
+5. If you have local PDF files for the corresponding literatures, you can host a local server to enable quick viewing from the UI:
 
 <ol><ol type="a">
 <li><p>Host a local html server in the directory of your PDF files:</p>

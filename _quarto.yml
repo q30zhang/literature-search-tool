@@ -17,10 +17,10 @@ website:
   title: "Literature Collections - Truck Platooning Control"
   navbar:
     right:
-      - href: index.qmd
-        text: Home
       - href: literatures_list.qmd
         text: List of Literatures
+      - href: about.qmd
+        text: About
   search:
     location: navbar
     type: overlay
